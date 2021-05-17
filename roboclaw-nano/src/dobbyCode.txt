@@ -1,0 +1,179 @@
+#include <Arduino.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+
+
+#define potPin A0
+#define buzzPin 2
+#define startPin 4
+#define increasePin 7
+#define decreasePin 6
+
+#define ENA 3
+#define IN1 11
+#define IN2 10
+#define IN3 9
+#define IN4 8
+#define ENB 5
+
+float speed,speedOld = 0;
+int displaySpeed,speedPWM = 0;
+int potVal,potSpeed = 0;
+
+boolean start, startOld = false;
+
+LiquidCrystal_I2C lcd(0x3F, 16, 2);
+
+
+void beepOnce()
+{
+    digitalWrite(buzzPin, HIGH);
+    delay(30);
+    digitalWrite(buzzPin, LOW);
+    delay(30);
+}
+
+void setup()
+{
+    pinMode(increasePin, INPUT_PULLUP);
+    pinMode(decreasePin, INPUT_PULLUP);
+    pinMode(startPin, INPUT_PULLUP);
+    pinMode(potPin, INPUT);
+    pinMode(ENA, OUTPUT);
+    pinMode(ENB, OUTPUT);
+    pinMode(buzzPin, OUTPUT);
+
+	lcd.init();
+	lcd.backlight();
+
+	lcd.print("System Start");
+    delay(1000);
+    lcd.clear();
+
+    beepOnce();
+    beepOnce();
+
+    Serial.begin(115200);
+
+    Serial.println("Ready");
+    lcd.clear();
+    lcd.print("Speed: ");
+    lcd.setCursor(7,0);
+    lcd.print(displaySpeed);
+    lcd.setCursor(9,0);
+    lcd.print("%");
+
+    lcd.setCursor(0,1);
+    lcd.print("Motor: ");
+    lcd.setCursor(7, 1);
+    lcd.print("OFF");
+}
+
+void loop()
+{
+    potVal = analogRead(potPin);
+    map(potVal, 0, 1023, 0, 10);
+    potSpeed = potVal*25;
+
+    if (!digitalRead(increasePin))
+    {
+        beepOnce();
+        while (!digitalRead(increasePin));
+        speed+= 25;
+        //Serial.println("Increase");
+
+        if(speed > 250)
+        {
+            speed = 250;
+        }
+    }
+
+    if (!digitalRead(decreasePin))
+    {
+        beepOnce();
+        while (!digitalRead(decreasePin));
+        speed-=25;
+        //Serial.println("Decrease");
+        
+        if(speed < 0)
+        {
+            speed = 0;
+        }
+    }
+
+    if (!digitalRead(startPin))
+    {
+        beepOnce();
+        while(!digitalRead(startPin));
+
+        start = !start;
+        Serial.print("Start: ");
+        Serial.println(start);
+
+    }
+
+    if ((speedOld != speed) || (startOld != start))
+    {
+        lcd.clear();
+
+        lcd.setCursor(0,0);
+        lcd.print("Speed: ");
+        lcd.setCursor(7,0);
+        displaySpeed = ((speed/250)*100);
+        lcd.print(displaySpeed);
+
+        if(displaySpeed > 99)
+        {
+            lcd.setCursor(10,0);
+            lcd.print("%");        
+        } else {
+
+            lcd.setCursor(9,0);
+            lcd.print("%");
+        }
+
+
+
+        lcd.setCursor(0,1);
+        lcd.print("Motor: ");
+        lcd.setCursor(7,1);
+
+        if(start)
+        {
+            lcd.print("ON");
+        } else {
+            lcd.print("OFF");
+        }
+
+        speedOld = speed;
+        startOld = start;
+    }
+
+    if(start)
+    {
+        speedPWM = speed;
+        analogWrite(ENA, speedPWM);
+        analogWrite(ENB, speedPWM);
+
+        // digitalWrite(ENA, HIGH);
+        // digitalWrite(ENB, HIGH);
+
+        digitalWrite(IN1, HIGH);
+        digitalWrite(IN2, LOW);
+        digitalWrite(IN3, HIGH);
+        digitalWrite(IN4, LOW);
+
+    } else {
+
+        analogWrite(ENA, 0);
+        analogWrite(ENB, 0);
+
+        digitalWrite(IN1, LOW);
+        digitalWrite(IN2, LOW);
+        digitalWrite(IN1, LOW);
+        digitalWrite(IN2, LOW); 
+
+    }
+    
+}
+
